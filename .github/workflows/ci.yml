@@ -1,0 +1,31 @@
+name: Test and build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax
+        run: npm run check
+      - name: Test HTTP behaviour
+        run: npm test
+      - name: Build release image
+        run: docker build --build-arg APP_VERSION="$GITHUB_SHA" -t cloud-demo:test .
+      - name: Smoke test container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name cloud-demo -p 8080:8080 cloud-demo:test
+          trap 'docker logs cloud-demo; docker rm -f cloud-demo' EXIT
+          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8080/health
+          curl --fail http://localhost:8080/ | python3 -c 'import json,os,sys; assert json.load(sys.stdin)["version"] == os.environ["GITHUB_SHA"]'
