@@ -1,4 +1,4 @@
-name: Test and build
+name: Test, build and deploy to Render
 on:
   push:
     branches: [main]
@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
@@ -14,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Check syntax
         run: npm run check
       - name: Test HTTP behaviour
@@ -29,3 +32,19 @@ jobs:
           trap 'docker logs cloud-demo; docker rm -f cloud-demo' EXIT
           curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8080/health
           curl --fail http://localhost:8080/ | python3 -c 'import json,os,sys; assert json.load(sys.stdin)["version"] == os.environ["GITHUB_SHA"]'
+  deploy:
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.RENDER_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Deploy tested commit and verify live version
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RENDER_SERVICE_URL: ${{ vars.RENDER_SERVICE_URL }}
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: node scripts/deploy-render.mjs

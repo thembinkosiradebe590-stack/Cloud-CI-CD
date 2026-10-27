@@ -1,45 +1,35 @@
-# Cloud CI/CD portfolio project
+# Cloud CI/CD project — Render edition
 
-Build a pipeline that tests a small HTTP application, packages it in Docker, deploys it to the cloud, and supports rollback.
+A small Node.js API with automated tests, Docker builds, and deployment to Render after successful checks.
 
-## Current status
-
-The application, HTTP tests, Dockerfile, and GitHub Actions CI workflow are ready. Cloud deployment and rollback configuration are pending the choice of provider. Nothing has been published or deployed.
+Start with [STAGE-2-SETUP.md](STAGE-2-SETUP.md). It includes the exact files to replace, Google Cloud cleanup, account setup, secrets, deployment verification, and rollback.
 
 ## Run locally
 
-Install Node.js 22 or later, then run these commands from this folder:
+Use Node.js 24 or later:
 
 ```sh
+npm run check
 npm test
 npm start
 ```
 
-Open http://localhost:8080 for the release version and http://localhost:8080/health for health status. This demo has no package dependencies.
+No npm install is required: the app and tests use Node's built-in modules. Visit http://localhost:8080 and http://localhost:8080/health.
 
-## Container
+## Pipeline
 
-With Docker installed:
+Pull request or push → syntax checks → HTTP and deployment-script tests → Docker build and smoke test.
 
-```sh
-docker build --build-arg APP_VERSION=demo-v1 -t cloud-demo:v1 .
-docker run --rm -p 8080:8080 cloud-demo:v1
-```
+Successful main branch checks → Render deploy hook for that exact commit → poll public health and version endpoints. Deployment requires RENDER_DEPLOY_ENABLED=true and the settings in the setup guide. Render rebuilds the same source commit with the Dockerfile; it does not reuse the CI image. The Node image tag can change over time, so these are not guaranteed byte-identical images.
 
-## GitHub setup
+## Endpoints
 
-Create a GitHub repository and upload this folder's contents, including the hidden `.github` directory, to its root. Use `main` as the default branch. Open the Actions tab to inspect the first run. Pull requests also run the tests and container checks. Where your repository plan supports it, configure a branch rule requiring `test-and-build` before merging.
+- `/`: JSON message and deployed commit version. Render's RENDER_GIT_COMMIT takes priority over APP_VERSION; local development defaults to local.
+- `/health`: JSON status ok.
+- Unknown paths: HTTP 404. Unsupported methods: HTTP 405.
 
-## Deployment milestone
+The application binds to 0.0.0.0 and honours PORT. The container runs as a non-root user. Credentials belong in GitHub Secrets, never in the repository.
 
-After choosing a cloud provider, add identity federation, an image registry, and a deployment job that runs only after CI passes on main. Tag images with the Git commit SHA. Verify the deployed health endpoint and version. Document how to redeploy a previous successful image or route traffic to its revision.
+## Rollback
 
-## Portfolio demonstration
-
-1. Open a pull request with a deliberately broken response; show a failed test.
-2. Fix it and show the green checks.
-3. Merge and show the new commit version on the cloud endpoint once deployment is configured.
-4. Demonstrate rollback to the prior version.
-5. Save screenshots, an architecture diagram, and a short explanation of what each stage protects against.
-
-Never commit cloud credentials or local `.env` files.
+Follow [ROLLBACK.md](ROLLBACK.md). Rollback is manual and available for retained successful deploys. No Google Cloud account or configuration is required.

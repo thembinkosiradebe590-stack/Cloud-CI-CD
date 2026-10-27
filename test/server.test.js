@@ -1,9 +1,18 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from '../server.js';
+import { createServer, resolveVersion } from '../server.js';
 
 let server;
 let base;
+test('Render commit takes precedence over the Docker build default', () => {
+  assert.equal(resolveVersion({ RENDER_GIT_COMMIT: 'render-commit', APP_VERSION: 'local' }), 'render-commit');
+});
+test('local Docker image keeps its build version', () => {
+  assert.equal(resolveVersion({ APP_VERSION: 'built-commit' }), 'built-commit');
+});
+test('local development has a readable fallback version', () => {
+  assert.equal(resolveVersion({}), 'local');
+});
 before(async () => {
   server = createServer('test-commit');
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

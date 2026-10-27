@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: cloud-cicd-demo
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: off

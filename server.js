@@ -1,7 +1,11 @@
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 
-export function createServer(version = process.env.APP_VERSION || 'local') {
+export function resolveVersion(env = process.env) {
+  return env.RENDER_GIT_COMMIT || env.APP_VERSION || 'local';
+}
+
+export function createServer(version = resolveVersion()) {
   return http.createServer((req, res) => {
     const path = new URL(req.url, 'http://localhost').pathname;
     res.setHeader('Content-Type', 'application/json');
