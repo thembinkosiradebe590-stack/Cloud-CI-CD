@@ -30,8 +30,10 @@ jobs:
           set -euo pipefail
           docker run -d --name cloud-demo -p 8080:8080 cloud-demo:test
           trap 'docker logs cloud-demo; docker rm -f cloud-demo' EXIT
-          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8080/health
-          curl --fail http://localhost:8080/ | python3 -c 'import json,os,sys; assert json.load(sys.stdin)["version"] == os.environ["GITHUB_SHA"]'
+          curl --fail --silent --show-error --retry 15 --retry-all-errors --retry-delay 2 --connect-timeout 2 --max-time 5 --output /tmp/cloud-demo-health.json http://127.0.0.1:8080/health
+          python3 -c 'import json; assert json.load(open("/tmp/cloud-demo-health.json"))["status"] == "ok"'
+          curl --fail --silent --show-error --retry 15 --retry-all-errors --retry-delay 2 --connect-timeout 2 --max-time 5 --output /tmp/cloud-demo-version.json http://127.0.0.1:8080/
+          python3 -c 'import json,os; assert json.load(open("/tmp/cloud-demo-version.json"))["version"] == os.environ["GITHUB_SHA"]'
   deploy:
     needs: test-and-build
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.RENDER_DEPLOY_ENABLED == 'true'
